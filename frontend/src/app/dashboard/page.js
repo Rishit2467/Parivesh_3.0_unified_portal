@@ -1,7 +1,7 @@
 "use client";
 
 // ── Dashboard Page ───────────────────────────────────────────────────
-// Role-aware dashboard — routes each role to their relevant view
+// Role-aware dashboard with charts, activity feed, and quick actions
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,122 +10,316 @@ import DashboardLayout from "@/components/DashboardLayout";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import DonutChart from "@/components/charts/DonutChart";
+import BarChart from "@/components/charts/BarChart";
+import TrendChart from "@/components/charts/TrendChart";
+import RecentActivity from "@/components/RecentActivity";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Link from "next/link";
 import api from "@/lib/api";
+
+const STATUS_COLORS = {
+  Draft: "#9ca3af",
+  Submitted: "#2563eb",
+  "Under Scrutiny": "#eab308",
+  "Query Raised": "#f97316",
+  "Approved For Meeting": "#16a34a",
+  "Mom Preparation": "#8b5cf6",
+  "Final Publication": "#06b6d4",
+};
 
 function DashboardContent() {
   const { user, isAdmin, isProponent, isScrutiny, isMom } = useAuth();
   const [stats, setStats] = useState(null);
+  const [trend, setTrend] = useState([]);
+  const [byCategory, setByCategory] = useState([]);
+  const [recentApps, setRecentApps] = useState([]);
+  const [proponentStats, setProponentStats] = useState(null);
+  const [scrutinyStats, setScrutinyStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchStats() {
+    async function fetchData() {
       try {
         if (isAdmin || isScrutiny || isMom) {
-          const { data } = await api.get("/dashboard/overview");
-          setStats(data);
-        } else if (isProponent) {
-          const { data } = await api.get("/applications/my?limit=1");
-          setStats({ total_applications: data.total });
+          const [ov, tr, cat, recent] = await Promise.all([
+            api.get("/dashboard/overview"),
+            api.get("/dashboard/monthly-trend"),
+            api.get("/dashboard/by-category"),
+            api.get("/dashboard/recent-applications"),
+          ]);
+          setStats(ov.data);
+          setTrend(tr.data);
+          setByCategory(cat.data);
+          setRecentApps(recent.data);
+        }
+        if (isScrutiny) {
+          const { data } = await api.get("/dashboard/scrutiny-stats");
+          setScrutinyStats(data);
+        }
+        if (isProponent) {
+          const { data } = await api.get("/dashboard/my-stats");
+          setProponentStats(data);
         }
       } catch {
-        // Stats not critical — silently fail
+        // Dashboard not critical
       } finally {
         setLoading(false);
       }
     }
-    fetchStats();
+    fetchData();
   }, [isAdmin, isProponent, isScrutiny, isMom]);
 
   if (loading) return <LoadingSpinner className="py-20" />;
+
+  // Chart data transforms
+  const statusData = stats?.by_status
+    ? Object.entries(stats.by_status).map(([s, c]) => ({
+        label: s.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
+        value: c,
+      }))
+    : [];
+
+  const trendData = trend.map((r) => ({
+    label: new Date(r.month).toLocaleDateString("en-IN", { month: "short" }),
+    value: parseInt(r.count, 10),
+  }));
+
+  const catData = byCategory.map((r) => ({
+    label: r.category ? r.category.code : "?",
+    value: parseInt(r.count, 10),
+  }));
+
+  const proStatusData = proponentStats?.by_status
+    ? Object.entries(proponentStats.by_status).map(([s, c]) => ({
+        label: s.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
+        value: c,
+      }))
+    : [];
 
   return (
     <>
       <PageHeader
         title={`Welcome, ${user?.name}`}
         subtitle={`${user?.role?.name?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} Dashboard`}
-      />
+      >
+        {isAdmin && (
+          <Link href="/admin/analytics"
+            className="px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
+            📊 Full Analytics
+          </Link>
+        )}
+      </PageHeader>
 
-      {/* Admin / Team stats */}
-      {(isAdmin || isScrutiny || isMom) && stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Total Applications"
-            value={stats.total_applications}
-            icon="📋"
-            color="primary"
-          />
-          <StatCard
-            label="Under Scrutiny"
-            value={stats.by_status?.under_scrutiny || 0}
-            icon="🔍"
-            color="yellow"
-          />
-          <StatCard
-            label="Approved"
-            value={stats.by_status?.approved_for_meeting || 0}
-            icon="✅"
-            color="green"
-          />
-          <StatCard
-            label="Published"
-            value={stats.by_status?.final_publication || 0}
-            icon="📢"
-            color="purple"
-          />
-        </div>
-      )}
-
-      {/* Additional admin stats */}
+      {/* ── ADMIN DASHBOARD ─────────────────────────────── */}
       {isAdmin && stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <StatCard
-            label="Total Users"
-            value={stats.total_users}
-            icon="👥"
-            color="primary"
-          />
-          <StatCard
-            label="Completed Payments"
-            value={stats.completed_payments}
-            icon="💰"
-            color="green"
-          />
-          <StatCard
-            label="Total Revenue (₹)"
-            value={stats.total_revenue?.toLocaleString("en-IN") || "0"}
-            icon="📈"
-            color="purple"
-          />
-        </div>
-      )}
-
-      {/* Proponent view */}
-      {isProponent && stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-          <StatCard
-            label="My Applications"
-            value={stats.total_applications}
-            icon="📋"
-            color="primary"
-          />
-        </div>
-      )}
-
-      {/* Status overview for admin */}
-      {isAdmin && stats?.by_status && (
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Application Status Breakdown</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            {Object.entries(stats.by_status).map(([status, count]) => (
-              <div key={status} className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-900">{count}</div>
-                <div className="text-xs text-gray-500 mt-1 capitalize">
-                  {status.replace(/_/g, " ")}
-                </div>
-              </div>
-            ))}
+        <>
+          {/* KPI Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <StatCard label="Applications" value={stats.total_applications} icon="📋" color="primary" />
+            <StatCard label="Under Scrutiny" value={stats.by_status?.under_scrutiny || 0} icon="🔍" color="yellow" />
+            <StatCard label="Approved" value={stats.by_status?.approved_for_meeting || 0} icon="✅" color="green" />
+            <StatCard label="Published" value={stats.by_status?.final_publication || 0} icon="📢" color="purple" />
+            <StatCard label="Users" value={stats.total_users} icon="👥" color="blue" />
+            <StatCard label="Revenue (₹)" value={stats.total_revenue?.toLocaleString("en-IN") || "0"} icon="💰" color="green" />
           </div>
-        </div>
+
+          {/* Charts Row */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-6">
+            <div className="card lg:col-span-2">
+              <TrendChart data={trendData} title="Monthly Applications" height={220} />
+            </div>
+            <div className="card">
+              <DonutChart
+                data={statusData}
+                title="Status Distribution"
+                size={180}
+                centerLabel="Total"
+                colorMap={STATUS_COLORS}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Row: Category + Recent Activity */}
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            <div className="card">
+              <BarChart data={catData} title="By Category" height={200} />
+            </div>
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h3>
+              <RecentActivity limit={8} />
+            </div>
+          </div>
+
+          {/* Recent Applications Table */}
+          {recentApps.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">Recent Applications</h3>
+                <Link href="/admin/applications" className="text-xs text-primary-600 hover:underline">View All →</Link>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left">
+                      <th className="py-2 px-3 font-medium text-gray-500">Reference</th>
+                      <th className="py-2 px-3 font-medium text-gray-500">Project</th>
+                      <th className="py-2 px-3 font-medium text-gray-500">Applicant</th>
+                      <th className="py-2 px-3 font-medium text-gray-500">Status</th>
+                      <th className="py-2 px-3 font-medium text-gray-500">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentApps.slice(0, 5).map((app) => (
+                      <tr key={app.id} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="py-2 px-3">
+                          <Link href={`/admin/applications/${app.id}`} className="text-primary-600 hover:underline font-medium">
+                            {app.reference_number}
+                          </Link>
+                        </td>
+                        <td className="py-2 px-3 max-w-48 truncate">{app.project_name}</td>
+                        <td className="py-2 px-3 text-gray-600">{app.applicant?.name}</td>
+                        <td className="py-2 px-3"><StatusBadge status={app.status} /></td>
+                        <td className="py-2 px-3 text-gray-500 text-xs">
+                          {new Date(app.createdAt).toLocaleDateString("en-IN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── SCRUTINY TEAM DASHBOARD ─────────────────────── */}
+      {isScrutiny && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total Applications" value={stats?.total_applications || 0} icon="📋" color="primary" />
+            <StatCard label="Assigned to Me" value={scrutinyStats?.assigned_applications || 0} icon="📌" color="blue" />
+            <StatCard label="Pending Queries" value={scrutinyStats?.pending_queries || 0} icon="❓" color="yellow" />
+            <StatCard label="Resolved Queries" value={scrutinyStats?.resolved_queries || 0} icon="✅" color="green" />
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            {statusData.length > 0 && (
+              <div className="card">
+                <DonutChart data={statusData} title="System Status Overview" size={180} centerLabel="Total" colorMap={STATUS_COLORS} />
+              </div>
+            )}
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h3>
+              <RecentActivity limit={8} />
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">Quick Actions</h3>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/scrutiny/applications"
+                className="px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
+                📋 View Assigned Applications
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── MOM TEAM DASHBOARD ──────────────────────────── */}
+      {isMom && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total Applications" value={stats?.total_applications || 0} icon="📋" color="primary" />
+            <StatCard label="Meetings" value={stats?.total_meetings || 0} icon="📅" color="blue" />
+            <StatCard label="Approved for Meeting" value={stats?.by_status?.approved_for_meeting || 0} icon="✅" color="green" />
+            <StatCard label="MoM Preparation" value={stats?.by_status?.mom_preparation || 0} icon="📝" color="purple" />
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            {statusData.length > 0 && (
+              <div className="card">
+                <DonutChart data={statusData} title="Application Status" size={180} centerLabel="Total" colorMap={STATUS_COLORS} />
+              </div>
+            )}
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Activity</h3>
+              <RecentActivity limit={8} />
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex flex-wrap gap-3">
+              <Link href="/mom/meetings"
+                className="px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
+                📅 Manage Meetings
+              </Link>
+              <Link href="/mom/applications"
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 font-medium">
+                📋 View Applications
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── PROPONENT DASHBOARD ─────────────────────────── */}
+      {isProponent && proponentStats && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <StatCard label="My Applications" value={proponentStats.total_applications} icon="📋" color="primary" />
+            <StatCard label="Documents" value={proponentStats.total_documents} icon="📄" color="blue" />
+            <StatCard
+              label="Total Paid (₹)"
+              value={proponentStats.total_paid?.toLocaleString("en-IN") || "0"}
+              icon="💰"
+              color="green"
+            />
+            <StatCard label="Published" value={proponentStats.by_status?.final_publication || 0} icon="📢" color="purple" />
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            {proStatusData.length > 0 && (
+              <div className="card">
+                <DonutChart
+                  data={proStatusData}
+                  title="My Application Statuses"
+                  size={180}
+                  centerLabel="Total"
+                  colorMap={STATUS_COLORS}
+                />
+              </div>
+            )}
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h3>
+              <div className="flex flex-col gap-3">
+                <Link href="/proponent/applications/new"
+                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                  <span className="text-2xl">➕</span>
+                  <div>
+                    <p className="font-medium text-gray-900">New Application</p>
+                    <p className="text-xs text-gray-500">Start a new EC application</p>
+                  </div>
+                </Link>
+                <Link href="/proponent/applications"
+                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                  <span className="text-2xl">📋</span>
+                  <div>
+                    <p className="font-medium text-gray-900">My Applications</p>
+                    <p className="text-xs text-gray-500">View and manage your applications</p>
+                  </div>
+                </Link>
+                <Link href="/profile"
+                  className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                  <span className="text-2xl">👤</span>
+                  <div>
+                    <p className="font-medium text-gray-900">Profile</p>
+                    <p className="text-xs text-gray-500">Update your account details</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </>
   );
