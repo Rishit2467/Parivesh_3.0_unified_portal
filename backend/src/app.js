@@ -42,8 +42,8 @@ if (!fs.existsSync(config.upload.dir)) {
 }
 
 // ── API Routes ───────────────────────────────────────────────────────
-// Routes will be registered here in subsequent steps
-// e.g. app.use("/api/auth", require("./routes/auth"));
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/admin", require("./routes/admin"));
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
