@@ -1,27 +1,9 @@
-require("dotenv").config();
 const path = require("path");
 
-// Sequelize CLI configuration — points to same DB settings
+// Sequelize CLI paths — tells the CLI where to find config, models, etc.
 module.exports = {
-  development: {
-    username: process.env.DB_USER || "parivesh_admin",
-    password: process.env.DB_PASSWORD || "parivesh_secure_2024",
-    database: process.env.DB_NAME || "parivesh_db",
-    host: process.env.DB_HOST || "localhost",
-    port: parseInt(process.env.DB_PORT, 10) || 5432,
-    dialect: "postgres",
-    seederStorage: "sequelize",
-    migrationStorage: "sequelize",
-  },
-  production: {
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT, 10) || 5432,
-    dialect: "postgres",
-    seederStorage: "sequelize",
-    migrationStorage: "sequelize",
-    logging: false,
-  },
+  config: path.resolve(__dirname, "src", "config", "database.js"),
+  "models-path": path.resolve(__dirname, "src", "models"),
+  "seeders-path": path.resolve(__dirname, "seeders"),
+  "migrations-path": path.resolve(__dirname, "migrations"),
 };
