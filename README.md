@@ -1,92 +1,404 @@
 # PARIVESH 3.0 — Unified Environmental Clearance Portal
 
-A production-ready web portal that manages the complete lifecycle of Environmental Clearance (EC) applications — from submission by project proponents to publication of the Minutes of the Meeting (MoM).
+A production-ready web portal that manages the complete lifecycle of Environmental Clearance (EC) applications — from submission by project proponents through scrutiny review and EAC meetings to final publication of the Minutes of the Meeting (MoM).
+
+Built for the **PARIVESH 3.0 Government Hackathon**.
+
+---
 
 ## Tech Stack
 
-| Layer          | Technology                        |
-| -------------- | --------------------------------- |
-| Frontend       | React + Next.js + TailwindCSS     |
-| Backend        | Node.js + Express                 |
-| Database       | PostgreSQL                        |
-| Authentication | JWT + Role-Based Access Control   |
-| File Storage   | AWS S3 / Local Storage            |
-| Payments       | UPI / QR Code (mock API)          |
-| Deployment     | Docker + Docker Compose           |
+| Layer            | Technology                                      |
+| ---------------- | ----------------------------------------------- |
+| Frontend         | React 18 + Next.js 14 (App Router) + TailwindCSS |
+| Backend          | Node.js 20 + Express 4 + Sequelize 6 ORM       |
+| Database         | PostgreSQL 16                                   |
+| Authentication   | JWT + Role-Based Access Control (RBAC)          |
+| File Storage     | Local Storage (Docker volume)                   |
+| Payments         | UPI / QR Code (mock integration)                |
+| DevOps           | Docker + Docker Compose                         |
 
-## Project Structure
+---
 
-```
-├── backend/           # Express API server
-│   ├── src/
-│   │   ├── config/    # Database, env, storage config
-│   │   ├── middleware/ # Auth, RBAC, validation, upload
-│   │   ├── models/    # Sequelize models
-│   │   ├── routes/    # Express route handlers
-│   │   ├── services/  # Business logic layer
-│   │   ├── utils/     # Helpers and utilities
-│   │   └── app.js     # Express app entry
-│   ├── migrations/    # Database migrations
-│   └── seeders/       # Seed data
-├── frontend/          # Next.js application
-│   ├── src/
-│   │   ├── app/       # Next.js App Router pages
-│   │   ├── components/ # Reusable UI components
-│   │   ├── contexts/  # React context providers
-│   │   ├── hooks/     # Custom hooks
-│   │   ├── lib/       # API client, utilities
-│   │   └── styles/    # Global styles
-│   └── public/        # Static assets
-├── docker-compose.yml
-└── README.md
-```
+## Features
 
-## Roles
+### For Project Proponents
+- Multi-step application wizard with draft save
+- Document upload with drag-and-drop, version history, and inline preview
+- Fee payment (mock UPI/QR integration)
+- Real-time application status tracking with visual workflow indicator
+- Personal dashboard with application statistics and donut charts
 
-| Role                | Description                              |
-| ------------------- | ---------------------------------------- |
-| Admin               | System administration and configuration  |
-| Project Proponent   | Submit and track EC applications         |
-| Scrutiny Team       | Review applications and raise queries    |
-| MoM Team            | Prepare and publish meeting minutes      |
+### For Scrutiny Team
+- Review assigned applications with remarks, queries, and corrections
+- Approve or send back applications with audit trail
+- Document review portal grouped by document type
+- Workload dashboard showing pending/resolved queries
+
+### For MoM Team
+- Create and manage EAC meetings with agenda items
+- Link applications to meetings and record decisions
+- Draft, finalize, and publish meeting minutes
+- Meeting management dashboard
+
+### For Administrators
+- Full user management (create, activate/deactivate, role assignment)
+- Application category and sector management
+- Gist template management
+- Comprehensive analytics dashboard with:
+  - Monthly trend charts (SVG line/area)
+  - Status distribution donut charts
+  - Category and sector bar charts
+  - State-wise distribution
+  - Average processing time metrics
+  - Real-time activity feed
+  - Revenue tracking
+- Admin can assign scrutiny officers and MoM officers to applications
+
+---
 
 ## Application Workflow
 
 ```
-Draft → Submitted → Under Scrutiny → Query Raised → Approved for Meeting → MoM Preparation → Final Publication
+Draft → Submitted → Under Scrutiny ⇄ Query Raised → Approved for Meeting → MoM Preparation → Final Publication
 ```
+
+Each transition is validated and recorded with a full audit trail in the status history.
+
+---
+
+## Project Structure
+
+```
+parivesh-3.0/
+├── docker-compose.yml              # Orchestration for all 3 services
+├── .gitignore
+├── README.md
+│
+├── backend/                         # Express API Server
+│   ├── Dockerfile
+│   ├── .env.example
+│   ├── .sequelizerc
+│   ├── package.json
+│   ├── migrations/                  # Sequelize database migrations
+│   │   └── 20260306000001-create-full-schema.js
+│   ├── seeders/                     # Demo data (roles, categories, admin user)
+│   │   └── 20260306000001-initial-data.js
+│   ├── uploads/                     # File upload storage
+│   └── src/
+│       ├── app.js                   # Express entry point
+│       ├── config/                  # Database, env, sequelize config
+│       ├── middleware/              # authenticate, authorize, upload, validate
+│       ├── models/                  # 12 Sequelize models with associations
+│       │   ├── Application.js       # Core EC application
+│       │   ├── User.js / Role.js    # Auth & RBAC
+│       │   ├── Document.js          # File uploads with versioning
+│       │   ├── Remark.js            # Scrutiny remarks/queries
+│       │   ├── StatusHistory.js     # Audit trail
+│       │   ├── Payment.js           # Fee payments
+│       │   ├── Meeting.js           # EAC meetings
+│       │   ├── MeetingApplication.js # Meeting–Application join
+│       │   ├── ApplicationCategory.js / Sector.js
+│       │   ├── GistTemplate.js      # Gist document templates
+│       │   └── index.js             # Associations
+│       ├── routes/                  # 10 Express route files (40+ endpoints)
+│       │   ├── auth.js              # Login, register, profile
+│       │   ├── admin.js             # User/category/sector management
+│       │   ├── applications.js      # CRUD + submit + history
+│       │   ├── documents.js         # Upload, download, versions, delete
+│       │   ├── scrutiny.js          # Remarks, approve, send-back
+│       │   ├── meetings.js          # CRUD, link apps, decisions, MoM
+│       │   ├── payments.js          # Initiate, verify, mock
+│       │   ├── dashboard.js         # 10 analytics endpoints
+│       │   ├── workflow.js          # Workflow status API
+│       │   └── config.js            # Categories & sectors lookup
+│       ├── services/                # Business logic layer
+│       │   ├── authService.js
+│       │   ├── adminService.js
+│       │   ├── applicationService.js
+│       │   ├── documentService.js
+│       │   ├── scrutinyService.js
+│       │   ├── momService.js
+│       │   ├── paymentService.js
+│       │   ├── dashboardService.js  # Analytics aggregations
+│       │   ├── statusTransitionService.js  # Workflow engine
+│       │   └── configService.js
+│       └── utils/
+│           └── logger.js            # Winston logger
+│
+└── frontend/                        # Next.js Application
+    ├── Dockerfile
+    ├── .env.example
+    ├── package.json
+    ├── next.config.js
+    ├── tailwind.config.js           # Custom govt-themed palette
+    ├── postcss.config.js
+    └── src/
+        ├── styles/globals.css       # Tailwind imports + custom utilities
+        ├── lib/api.js               # Axios client with JWT interceptors
+        ├── contexts/AuthContext.js   # Auth state + role helpers
+        ├── components/
+        │   ├── DashboardLayout.js   # Sidebar + navbar layout shell
+        │   ├── Navbar.js            # Top navigation bar
+        │   ├── Sidebar.js           # Role-aware sidebar navigation
+        │   ├── ProtectedRoute.js    # Route guard with role check
+        │   ├── DocumentUploader.js  # Drag-and-drop file upload
+        │   ├── DocumentList.js      # Document display with versions/preview
+        │   ├── WorkflowTracker.js   # Visual workflow step indicator
+        │   ├── RecentActivity.js    # Activity feed component
+        │   ├── charts/
+        │   │   ├── BarChart.js      # Pure CSS bar chart
+        │   │   ├── DonutChart.js    # SVG donut chart
+        │   │   └── TrendChart.js    # SVG line/area chart
+        │   └── ui/
+        │       ├── DataTable.js     # Sortable data table
+        │       ├── LoadingSpinner.js
+        │       ├── PageHeader.js
+        │       ├── Pagination.js
+        │       ├── StatCard.js      # KPI metric card
+        │       └── StatusBadge.js   # Color-coded status pill
+        └── app/                     # Next.js App Router (25+ pages)
+            ├── layout.js            # Root layout with providers
+            ├── page.js              # Public landing page
+            ├── auth/
+            │   ├── login/page.js
+            │   └── register/page.js
+            ├── dashboard/page.js    # Role-aware dashboard with charts
+            ├── profile/page.js
+            ├── unauthorized/page.js
+            ├── admin/
+            │   ├── analytics/page.js    # Full analytics dashboard
+            │   ├── applications/page.js # Application list + assignment
+            │   ├── applications/[id]/page.js
+            │   ├── users/page.js
+            │   ├── categories/page.js
+            │   ├── sectors/page.js
+            │   ├── templates/page.js
+            │   └── payments/page.js
+            ├── proponent/
+            │   ├── applications/page.js     # My applications list
+            │   ├── applications/new/page.js # Multi-step wizard
+            │   ├── applications/[id]/page.js
+            │   └── applications/[id]/documents/page.js
+            ├── scrutiny/
+            │   ├── applications/page.js
+            │   ├── applications/[id]/page.js
+            │   └── applications/[id]/documents/page.js
+            └── mom/
+                ├── meetings/page.js
+                ├── meetings/[id]/page.js
+                └── applications/page.js
+```
+
+---
+
+## Roles & Permissions
+
+| Role               | Key Capabilities                                                |
+| ------------------- | --------------------------------------------------------------- |
+| **Admin**           | Manage users, categories, sectors, templates, assign officers, view analytics |
+| **Project Proponent** | Create/edit/submit applications, upload documents, make payments |
+| **Scrutiny Team**   | Review applications, add remarks/queries, approve/send back     |
+| **MoM Team**        | Create meetings, link applications, record decisions, publish MoM |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
-- Docker & Docker Compose
-- Node.js 20+ (for local development)
-- PostgreSQL 16 (or use Docker)
+- **Docker & Docker Compose** (recommended)
+- Or: Node.js 20+, PostgreSQL 16
 
-### Run with Docker
+### Quick Start with Docker
 
 ```bash
+# Clone the repository
+git clone https://github.com/Rishit2467/Parivesh_3.0_unified_portal.git
+cd Parivesh_3.0_unified_portal
+
+# Start all services
 docker-compose up --build
 ```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000/api
-- PostgreSQL: localhost:5432
+| Service   | URL                            |
+| --------- | ------------------------------ |
+| Frontend  | http://localhost:3000          |
+| API       | http://localhost:5000/api      |
+| Health    | http://localhost:5000/api/health |
+| Database  | localhost:5432                 |
 
 ### Local Development
 
 ```bash
-# Backend
-cd backend && npm install && npm run dev
+# 1. Start PostgreSQL (Docker or local)
+docker-compose up db -d
 
-# Frontend
-cd frontend && npm install && npm run dev
+# 2. Backend
+cd backend
+cp .env.example .env          # Configure your env
+npm install
+npm run migrate               # Run database migrations
+npm run seed                  # Seed demo data
+npm run dev                   # Starts on port 5000
+
+# 3. Frontend (in another terminal)
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev                   # Starts on port 3000
 ```
+
+### Demo Login
+
+| Role              | Email                      | Password    |
+| ----------------- | -------------------------- | ----------- |
+| Admin             | admin@parivesh.gov.in      | Admin@123   |
+
+> Register new users via the registration page. Admin can change roles from the user management panel.
+
+---
+
+## API Endpoints
+
+### Authentication
+| Method | Endpoint               | Description            |
+| ------ | ---------------------- | ---------------------- |
+| POST   | `/api/auth/register`   | Register new user      |
+| POST   | `/api/auth/login`      | Login and get JWT      |
+| GET    | `/api/auth/me`         | Get current user       |
+| PUT    | `/api/auth/profile`    | Update profile         |
+
+### Applications
+| Method | Endpoint                               | Description                   |
+| ------ | -------------------------------------- | ----------------------------- |
+| GET    | `/api/applications/my`                 | List own applications         |
+| POST   | `/api/applications`                    | Create draft application      |
+| GET    | `/api/applications/:id`                | Get application details       |
+| PUT    | `/api/applications/:id`                | Update draft                  |
+| POST   | `/api/applications/:id/submit`         | Submit application            |
+| GET    | `/api/applications/:id/history`        | Status change history         |
+
+### Documents
+| Method | Endpoint                                          | Description              |
+| ------ | ------------------------------------------------- | ------------------------ |
+| POST   | `/api/documents/application/:id`                  | Upload document          |
+| GET    | `/api/documents/:id/download`                     | Download file            |
+| GET    | `/api/documents/application/:id/versions/:type`   | Version history          |
+| DELETE | `/api/documents/:id`                              | Soft-delete document     |
+
+### Scrutiny
+| Method | Endpoint                                       | Description           |
+| ------ | ---------------------------------------------- | --------------------- |
+| GET    | `/api/scrutiny/applications`                   | List assigned apps    |
+| GET    | `/api/scrutiny/applications/:id/remarks`       | Get remarks           |
+| POST   | `/api/scrutiny/applications/:id/remarks`       | Add remark/query      |
+| POST   | `/api/scrutiny/applications/:id/approve`       | Approve for meeting   |
+| POST   | `/api/scrutiny/applications/:id/send-back`     | Send back with query  |
+
+### Meetings (MoM)
+| Method | Endpoint                                      | Description          |
+| ------ | --------------------------------------------- | -------------------- |
+| GET    | `/api/meetings`                               | List meetings        |
+| POST   | `/api/meetings`                               | Create meeting       |
+| GET    | `/api/meetings/:id`                           | Meeting details      |
+| POST   | `/api/meetings/:id/applications`              | Add app to meeting   |
+| PUT    | `/api/meetings/:id/finalize`                  | Finalize meeting     |
+| PUT    | `/api/meetings/:id/publish`                   | Publish MoM          |
+
+### Dashboard & Analytics
+| Method | Endpoint                          | Description                |
+| ------ | --------------------------------- | -------------------------- |
+| GET    | `/api/dashboard/overview`         | System-wide KPIs           |
+| GET    | `/api/dashboard/by-category`      | Category breakdown         |
+| GET    | `/api/dashboard/by-sector`        | Sector breakdown           |
+| GET    | `/api/dashboard/monthly-trend`    | 12-month trend             |
+| GET    | `/api/dashboard/recent-applications` | Latest 10 applications  |
+| GET    | `/api/dashboard/recent-activity`  | Latest status changes      |
+| GET    | `/api/dashboard/by-state`         | State-wise distribution    |
+| GET    | `/api/dashboard/processing-time`  | Avg. processing days       |
+| GET    | `/api/dashboard/my-stats`         | Proponent personal stats   |
+| GET    | `/api/dashboard/scrutiny-stats`   | Scrutiny workload stats    |
+
+### Admin
+| Method | Endpoint                               | Description              |
+| ------ | -------------------------------------- | ------------------------ |
+| GET    | `/api/admin/users`                     | List all users           |
+| PUT    | `/api/admin/users/:id/role`            | Change user role         |
+| PUT    | `/api/admin/users/:id/toggle-active`   | Activate/deactivate user |
+| PUT    | `/api/applications/:id/assign-scrutiny`| Assign scrutiny officer  |
+| PUT    | `/api/applications/:id/assign-mom`     | Assign MoM officer       |
+
+### Config
+| Method | Endpoint                  | Description          |
+| ------ | ------------------------- | -------------------- |
+| GET    | `/api/config/categories`  | List categories      |
+| GET    | `/api/config/sectors`     | List sectors         |
+
+---
+
+## Database Schema
+
+12 tables with full referential integrity:
+
+```
+roles ──────────────── users
+                         │
+           ┌─────────────┼──────────────┐
+           ▼             ▼              ▼
+     applications ── documents    status_history
+        │    │
+        │    ├── remarks
+        │    ├── payments
+        │    └── meeting_applications ── meetings
+        │
+        ├── application_categories
+        └── sectors
+
+gist_templates ── categories / sectors
+```
+
+---
 
 ## Environment Variables
 
-Copy `.env.example` files in both `backend/` and `frontend/` directories and configure as needed.
+### Backend (`backend/.env`)
+```env
+NODE_ENV=development
+PORT=5000
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=parivesh_db
+DB_USER=parivesh_admin
+DB_PASSWORD=parivesh_secure_2024
+JWT_SECRET=your_jwt_secret_change_in_production
+JWT_EXPIRY=24h
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE_MB=10
+CORS_ORIGIN=http://localhost:3000
+```
+
+### Frontend (`frontend/.env.local`)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+---
+
+## Security Features
+
+- **JWT Authentication** with automatic token refresh handling
+- **Role-Based Access Control** on every API route
+- **Helmet.js** security headers
+- **Rate Limiting** — 100 requests per 15 minutes per IP
+- **CORS** with configurable origin
+- **Input Validation** via express-validator
+- **File Upload Restrictions** — MIME type whitelist, 10MB limit
+- **Password Hashing** — bcrypt with 12 salt rounds
+- **Soft Deletes** — documents are deactivated, not destroyed
+- **Audit Trail** — every status change logged with user & timestamp
+
+---
 
 ## License
 
-Built for the PARIVESH 3.0 Government Hackathon.
+Built for the **PARIVESH 3.0 Government Hackathon** — Ministry of Environment, Forest and Climate Change (MoEFCC), Government of India.
