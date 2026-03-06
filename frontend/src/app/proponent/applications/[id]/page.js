@@ -7,8 +7,12 @@ import DashboardLayout from "@/components/DashboardLayout";
 import PageHeader from "@/components/ui/PageHeader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import WorkflowTracker from "@/components/WorkflowTracker";
+import DocumentList from "@/components/DocumentList";
+import DocumentUploader from "@/components/DocumentUploader";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import Link from "next/link";
 
 function AppDetailContent() {
   const { id } = useParams();
@@ -22,9 +26,6 @@ function AppDetailContent() {
   const [showPay, setShowPay] = useState(false);
   const [payAmount, setPayAmount] = useState("5000");
   const [paying, setPaying] = useState(false);
-
-  // Doc upload
-  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   const load = async () => {
     try {
@@ -69,28 +70,6 @@ function AppDetailContent() {
     }
   };
 
-  const handleDocUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploadingDoc(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("document_type", "additional_document");
-    fd.append("tag", "response_to_query");
-    try {
-      await api.post(`/documents/application/${id}`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Document uploaded");
-      load();
-    } catch (err) {
-      toast.error(err.response?.data?.error || "Upload failed");
-    } finally {
-      setUploadingDoc(false);
-      e.target.value = "";
-    }
-  };
-
   if (loading) return <LoadingSpinner className="py-20" />;
   if (!app) return <p className="text-center py-20 text-gray-500">Application not found</p>;
 
@@ -104,20 +83,27 @@ function AppDetailContent() {
               💰 Make Payment
             </button>
           )}
-          {app.status === "query_raised" && (
-            <label className="px-4 py-2 text-sm bg-yellow-600 text-white rounded-md hover:bg-yellow-700 font-medium cursor-pointer">
-              {uploadingDoc ? "Uploading…" : "📎 Upload Response"}
-              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={handleDocUpload} disabled={uploadingDoc} />
-            </label>
-          )}
+          <Link href={`/proponent/applications/${id}/documents`}
+            className="px-4 py-2 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium">
+            📁 Manage Documents
+          </Link>
           <button onClick={() => router.back()}
             className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50">← Back</button>
         </div>
       </PageHeader>
 
+      <WorkflowTracker currentStatus={app.status} history={history} />
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Upload area when query raised */}
+          {app.status === "query_raised" && (
+            <div className="card">
+              <h3 className="font-semibold text-gray-900 mb-3">Upload Response to Query</h3>
+              <DocumentUploader applicationId={id} onUploadComplete={() => load()} />
+            </div>
+          )}
+
           {/* Project Info */}
           <div className="card">
             <h3 className="font-semibold text-gray-900 mb-3">Project Information</h3>
@@ -165,24 +151,20 @@ function AppDetailContent() {
           )}
 
           {/* Documents */}
-          {app.documents?.length > 0 && (
-            <div className="card">
-              <h3 className="font-semibold text-gray-900 mb-3">Documents</h3>
-              <ul className="divide-y divide-gray-100">
-                {app.documents.map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between py-2 text-sm">
-                    <div>
-                      <span className="font-medium">{doc.original_name}</span>
-                      <span className="ml-2 text-xs text-gray-400">{doc.document_type} • v{doc.version}</span>
-                    </div>
-                    <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/documents/${doc.id}/download`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="text-primary-600 hover:underline text-xs">Download</a>
-                  </li>
-                ))}
-              </ul>
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900">Documents ({app.documents?.length || 0})</h3>
+              <Link href={`/proponent/applications/${id}/documents`}
+                className="text-xs text-primary-600 hover:underline">Manage All →</Link>
             </div>
-          )}
+            <DocumentList
+              documents={app.documents || []}
+              applicationId={id}
+              canDelete={["draft", "query_raised"].includes(app.status)}
+              onDocumentDeleted={() => load()}
+              showVersions
+            />
+          </div>
         </div>
 
         {/* Sidebar */}

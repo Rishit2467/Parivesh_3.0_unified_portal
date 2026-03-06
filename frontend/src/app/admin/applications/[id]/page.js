@@ -7,6 +7,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import PageHeader from "@/components/ui/PageHeader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import WorkflowTracker from "@/components/WorkflowTracker";
+import DocumentList from "@/components/DocumentList";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 
@@ -45,6 +47,8 @@ function AppDetailContent() {
           className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50">← Back</button>
       </PageHeader>
 
+      <WorkflowTracker currentStatus={app.status} history={history} />
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Main Info */}
         <div className="lg:col-span-2 space-y-6">
@@ -73,24 +77,15 @@ function AppDetailContent() {
           )}
 
           {/* Documents */}
-          {app.documents?.length > 0 && (
-            <div className="card">
-              <h3 className="font-semibold text-gray-900 mb-3">Documents</h3>
-              <ul className="divide-y divide-gray-100">
-                {app.documents.map((doc) => (
-                  <li key={doc.id} className="flex items-center justify-between py-2 text-sm">
-                    <div>
-                      <span className="font-medium">{doc.original_name}</span>
-                      <span className="ml-2 text-gray-400 text-xs">{doc.document_type} • v{doc.version}</span>
-                    </div>
-                    <a href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/documents/${doc.id}/download`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="text-primary-600 hover:underline text-xs">Download</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <div className="card">
+            <h3 className="font-semibold text-gray-900 mb-3">Documents ({app.documents?.length || 0})</h3>
+            <DocumentList
+              documents={app.documents || []}
+              applicationId={id}
+              canDelete={false}
+              showVersions
+            />
+          </div>
         </div>
 
         {/* Sidebar */}

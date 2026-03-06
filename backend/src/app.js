@@ -51,6 +51,7 @@ app.use("/api/meetings", require("./routes/meetings"));
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/config", require("./routes/config"));
 app.use("/api/dashboard", require("./routes/dashboard"));
+app.use("/api/workflow", require("./routes/workflow"));
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
