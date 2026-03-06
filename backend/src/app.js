@@ -44,6 +44,13 @@ if (!fs.existsSync(config.upload.dir)) {
 // ── API Routes ───────────────────────────────────────────────────────
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/admin", require("./routes/admin"));
+app.use("/api/applications", require("./routes/applications"));
+app.use("/api/documents", require("./routes/documents"));
+app.use("/api/scrutiny", require("./routes/scrutiny"));
+app.use("/api/meetings", require("./routes/meetings"));
+app.use("/api/payments", require("./routes/payments"));
+app.use("/api/config", require("./routes/config"));
+app.use("/api/dashboard", require("./routes/dashboard"));
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
